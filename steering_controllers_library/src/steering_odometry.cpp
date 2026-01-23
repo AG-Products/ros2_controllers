@@ -277,20 +277,36 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
   }
   else if (config_type_ == TRICYCLE_CONFIG)
   {
+    printf("SWorking, v = %.2lf, w = %.2lf\n", v_bx, omega_bz);
     std::vector<double> traction_commands;
     std::vector<double> steering_commands;
     // double-traction axle
     if (is_close_to_zero(phi_IK))
     {
+      printf("Phi ik close to zero");
       // avoid division by zero
       traction_commands = {Ws, Ws};
     }
     else
     {
-      const double turning_radius = wheelbase_ / std::tan(phi_IK);
-      const double Wr = Ws * (turning_radius + wheel_track_ * 0.5) / turning_radius;
-      const double Wl = Ws * (turning_radius - wheel_track_ * 0.5) / turning_radius;
-      traction_commands = {Wr, Wl};
+      if (v_bx == 0 && omega_bz != 0)
+      {  // is spin action
+        printf("Special spin time\n");
+        phi = omega_bz > 0 ? M_PI_2 : -M_PI_2;
+        Ws = abs(omega_bz) * wheelbase_ / wheel_radius_;
+        const double turning_radius = wheelbase_ / std::tan(phi_IK);
+        const double Wr = Ws * (turning_radius + wheel_track_ * 0.5) / turning_radius;
+        const double Wl = Ws * (turning_radius - wheel_track_ * 0.5) / turning_radius;
+        traction_commands = {Wr, Wl};
+      }
+      else
+      {
+        printf("No splint\n");
+        const double turning_radius = wheelbase_ / std::tan(phi_IK);
+        const double Wr = Ws * (turning_radius + wheel_track_ * 0.5) / turning_radius;
+        const double Wl = Ws * (turning_radius - wheel_track_ * 0.5) / turning_radius;
+        traction_commands = {Wr, Wl};
+      }
     }
     // simple steering
     steering_commands = {phi};
