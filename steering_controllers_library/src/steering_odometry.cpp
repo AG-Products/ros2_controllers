@@ -294,13 +294,14 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
 
   if (phi_delta > 0.01 && Ws == 0)
   {
-    scale = sin(abs(steer_pos_));
-    // printf(
-    //   "Steering correction while not moving, ws = %lf, phi_delta = %lf, scale = %lf, steer_pos =
-    //   "
-    //   "%lf\n",
-    //   Ws, phi_delta, scale, steer_pos_);
-    Ws = scale;
+    // scale = sin(abs(steer_pos_));
+    //  printf(
+    //    "Steering correction while not moving, ws = %lf, phi_delta = %lf, scale = %lf, steer_pos =
+    //    "
+    //    "%lf\n",
+    //    Ws, phi_delta, scale, steer_pos_);
+    //  Ws = scale
+    phi = steer_pos_;
   }
   // else
   // {
@@ -334,16 +335,26 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
       {  // is spin action
         // printf("Special spin time\n");
         //  const double turning_radius = wheelbase_ / std::tan(phi_IK);
-        const double Wr = Ws;
-        const double Wl = Ws;
+        const double right_sign = omega_bz > 0 ? 1.0 : -1.0;
+        const double left_sign = -right_sign;
+        const double Wr = right_sign * Ws;
+        const double Wl = left_sign * Ws;
         traction_commands = {Wr, Wl};
       }
       else
       {
         // printf("No spin\n");
         const double turning_radius = (wheelbase_ * cos(phi_IK) + steer_offset_) / std::sin(phi_IK);
-        const double Wr = Ws * (turning_radius + wheel_track_ * 0.5) / turning_radius;
-        const double Wl = Ws * (turning_radius - wheel_track_ * 0.5) / turning_radius;
+        double Wr, Wl;
+        if (abs(phi_IK) < 1e-3)
+        {
+          Wr = Wl = Ws;
+        }
+        else
+        {
+          Wr = Ws * (turning_radius + wheel_track_ * 0.5) / turning_radius;
+          Wl = Ws * (turning_radius - wheel_track_ * 0.5) / turning_radius;
+        }
         traction_commands = {Wr, Wl};
       }
     }

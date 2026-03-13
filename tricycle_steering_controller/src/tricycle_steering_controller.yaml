@@ -26,10 +26,7 @@ tricycle_steering_controller:
       type: double,
       default_value: 0.0,
       description: "Perpendicular distance between the steering axle and the wheel axle of the steerable wheel.",
-      read_only: false,
-      validation: {
-        gt<>: [0.0]
-      }
+      read_only: false
     }
 
   front_wheels_radius:
