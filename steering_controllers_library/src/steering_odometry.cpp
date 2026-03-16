@@ -36,6 +36,7 @@ SteeringOdometry::SteeringOdometry(size_t velocity_rolling_window_size)
   wheelbase_(0.0),
   steer_offset_(0.0),
   wheel_radius_(0.0),
+  wheel_velocity_limit_(0.0),
   traction_wheel_old_pos_(0.0),
   traction_right_wheel_old_pos_(0.0),
   traction_left_wheel_old_pos_(0.0),
@@ -196,12 +197,14 @@ void SteeringOdometry::update_open_loop(const double v_bx, const double omega_bz
 }
 
 void SteeringOdometry::set_wheel_params(
-  double wheel_radius, double wheelbase, double steer_offset, double wheel_track)
+  double wheel_radius, double wheelbase, double steer_offset, double wheel_track,
+  double wheel_velocity_limit)
 {
   wheel_radius_ = wheel_radius;
   wheelbase_ = wheelbase;
   wheel_track_ = wheel_track;
   steer_offset_ = steer_offset;
+  wheel_velocity_limit_ = wheel_velocity_limit;
 }
 
 void SteeringOdometry::set_velocity_rolling_window_size(size_t velocity_rolling_window_size)
@@ -227,8 +230,21 @@ double SteeringOdometry::convert_twist_to_steering_angle(double v_bx, double ome
   else
   {
     double turning_radius = v_bx / omega_bz;
-    phi = std::atan(wheelbase_ / turning_radius) +
-          std::asin(steer_offset_ / sqrt(pow(turning_radius, 2) + pow(wheelbase_, 2)));
+    bool positive = (omega_bz > 0 && v_bx > 0) || (omega_bz < 0 && v_bx < 0);
+    if (positive)
+    {
+      phi = std::atan(wheelbase_ / turning_radius) +
+            std::asin(steer_offset_ / sqrt(pow(turning_radius, 2) + pow(wheelbase_, 2)));
+    }
+    else
+    {
+      phi = std::atan(wheelbase_ / turning_radius) -
+            std::asin(steer_offset_ / sqrt(pow(turning_radius, 2) + pow(wheelbase_, 2)));
+    }
+    // std::cout << "turning_radius = " << turning_radius << ", phi = " << phi << std::endl;
+    // std::cout << "Phi part 1 = " << std::atan(wheelbase_ / turning_radius) << ", part 2 = "
+    //           << std::asin(steer_offset_ / sqrt(pow(turning_radius, 2) + pow(wheelbase_, 2)))
+    //           << std::endl;
   }
   return std::isfinite(phi) ? phi : 0.0;
 }
@@ -264,8 +280,11 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
   if (v_bx == 0 && omega_bz != 0)
   {
     double spin_angle = M_PI - std::acos(steer_offset_ / wheelbase_);
-    phi = omega_bz > 0 ? spin_angle : -spin_angle;
-    Ws = abs(omega_bz) * wheelbase_ / wheel_radius_;
+    if (abs(steer_pos_) > 80.0 * M_PI / 180.0)
+      phi = steer_pos_ > 0 ? spin_angle : -spin_angle;
+    else
+      phi = omega_bz > 0 ? spin_angle : -spin_angle;
+    Ws = 0.5 * abs(omega_bz) * wheel_track_ / wheel_radius_;
   }
   // printf("lin_speed = %.2lf, Twist = %.2lf, steering angle = %.2lf\n", Ws, omega_bz, phi);
   double phi_delta = abs(steer_pos_ - phi);
@@ -274,7 +293,7 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
   if (!open_loop && reduce_wheel_speed_until_steering_reached)
   {
     // Reduce wheel speed until the target angle has been reached
-    printf("reducing speed");
+    // printf("reducing speed");
     if (phi_delta < min_phi_delta)
     {
       scale = 1;
@@ -323,29 +342,31 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
     std::vector<double> traction_commands;
     std::vector<double> steering_commands;
     // double-traction axle
+    double Wr, Wl;
     if (is_close_to_zero(phi_IK))
     {
       // printf("Phi ik close to zero");
       //  avoid division by zero
-      traction_commands = {Ws, Ws};
+      Wr = Ws;
+      Wl = Ws;
+      traction_commands = {Wr, Wl};
     }
     else
     {
       if (v_bx == 0 && omega_bz != 0)
       {  // is spin action
-        // printf("Special spin time\n");
+        // std::cout << "Special spin time" << std::endl;
         //  const double turning_radius = wheelbase_ / std::tan(phi_IK);
         const double right_sign = omega_bz > 0 ? 1.0 : -1.0;
         const double left_sign = -right_sign;
-        const double Wr = right_sign * Ws;
-        const double Wl = left_sign * Ws;
+        Wr = right_sign * Ws;
+        Wl = left_sign * Ws;
         traction_commands = {Wr, Wl};
       }
       else
       {
         // printf("No spin\n");
         const double turning_radius = (wheelbase_ * cos(phi_IK) + steer_offset_) / std::sin(phi_IK);
-        double Wr, Wl;
         if (abs(phi_IK) < 1e-3)
         {
           Wr = Wl = Ws;
@@ -358,7 +379,29 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
         traction_commands = {Wr, Wl};
       }
     }
-    // simple steering
+    // Limiting wheel velocities
+    double max_mag = std::max(std::abs(Wr), std::abs(Wl));
+    if (max_mag > wheel_velocity_limit_)
+    {
+      double s = wheel_velocity_limit_ / max_mag;
+      // std::cout << "Old wheel velocities are Left: " << Wl << ", right: " << Wr << std::endl;
+      Wl *= s;
+      Wr *= s;
+      std::cout << "Wheel velocity exceeds maximum, scaling by a factor of " << s << std::endl;
+      std::cout << "New Wheel velocities are Left: " << Wl << ", right: " << Wr << std::endl;
+      const double denom = Wr - Wl;
+      double new_radius;
+      if (std::abs(denom) < 1e-9)
+      {
+        // Straight line (infinite radius)
+        new_radius = 0;
+      }
+      new_radius = (wheel_track_ * 0.5) * (Wl + Wr) / denom;
+
+      std::cout << "Desired turning radius = " << v_bx / omega_bz
+                << ", new turning radius = " << new_radius << std::endl;
+    }
+    traction_commands = {Wr, Wl};
     steering_commands = {phi};
     return std::make_tuple(traction_commands, steering_commands);
   }

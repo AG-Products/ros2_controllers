@@ -29,6 +29,14 @@ tricycle_steering_controller:
       read_only: false
     }
 
+  wheel_velocity_limit:
+    {
+      type: double,
+      default_value: 0.0,
+      description: "Maximum speed of each wheel in radians per second. If this limit is exceeded by the input twist command, both v and w will be scaled such that turn radius is preserved.",
+      read_only: false
+    }
+
   front_wheels_radius:
     {
       type: double,
