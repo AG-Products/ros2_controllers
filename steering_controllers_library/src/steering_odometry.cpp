@@ -381,9 +381,9 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
       }
     }
     // Limiting wheel velocities
-    std::cout << "inputs: v_bx = " << v_bx << ", w_bz = " << omega_bz << std::endl;
-    std::cout << "intermediates: Ws = " << Ws << ", phi = " << phi
-              << ", steer_pos_ = " << steer_pos_ << std::endl;
+    // std::cout << "inputs: v_bx = " << v_bx << ", w_bz = " << omega_bz << std::endl;
+    // std::cout << "intermediates: Ws = " << Ws << ", phi = " << phi
+    //           << ", steer_pos_ = " << steer_pos_ << std::endl;
     double max_mag = std::max(std::abs(Wr), std::abs(Wl));
     if (max_mag > wheel_velocity_limit_)
     {
@@ -392,7 +392,7 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
       Wl *= s;
       Wr *= s;
       // std::cout << "Wheel velocity exceeds maximum, scaling by a factor of " << s << std::endl;
-      std::cout << "Limited Wheel velocities are Left: " << Wl << ", right: " << Wr << std::endl;
+      // std::cout << "Limited Wheel velocities are Left: " << Wl << ", right: " << Wr << std::endl;
       // const double denom = Wr - Wl;
       // double new_radius;
       // if (std::abs(denom) < 1e-9)
@@ -402,27 +402,21 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
       // }
       // new_radius = (wheel_track_ * 0.5) * (Wl + Wr) / denom;
     }
-    else
-    {
-      std::cout << "Limiting not applied,  " << Wl << ", Wr = " << Wr << std::endl;
-    }
     if (abs(steer_pos_) - abs(phi) > 0.1)
     {  // special case when steering is moving towards the centre due to the added pressure from the
       // moving rear wheel
       double speed_addition_scale = 2;
-      oooooooooooooo if (Ws > 0)
+      if (Ws > 0)
       {
         if (Wl < Wr)
           Wl += speed_addition_scale * abs(Wl) * abs(phi_delta);
         else
           Wr += speed_addition_scale * abs(Wr) * abs(phi_delta);
       }
-      std::cout << "Post Correction Wheel Velcoities Wl = " << Wl << ", Wr = " << Wr << std::endl;
+      // std::cout << "Post Correction Wheel Velcoities Wl = " << Wl << ", Wr = " << Wr <<
+      // std::endl;
     }
-    else
-    {
-      std::cout << "Steer correction not applied,  " << Wl << ", Wr = " << Wr << std::endl;
-    }
+
     traction_commands = {Wr, Wl};
     if (phi > M_PI_2) phi = M_PI_2;
     if (phi < -M_PI_2) phi = -M_PI_2;
