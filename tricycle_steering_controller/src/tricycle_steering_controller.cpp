@@ -34,18 +34,17 @@ controller_interface::CallbackReturn TricycleSteeringController::configure_odome
   const double rear_wheels_radius = tricycle_params_.rear_wheels_radius;
   const double wheel_track = tricycle_params_.wheel_track;
   const double wheelbase = tricycle_params_.wheelbase;
-  const double steer_offset = tricycle_params_.steer_offset;
   const double wheel_velocity_limit = tricycle_params_.wheel_velocity_limit;
 
   if (params_.front_steering)
   {
     odometry_.set_wheel_params(
-      rear_wheels_radius, wheelbase, steer_offset, wheel_track, wheel_velocity_limit);
+      rear_wheels_radius, wheelbase, wheel_track, wheel_velocity_limit);
   }
   else
   {
     odometry_.set_wheel_params(
-      front_wheels_radius, wheelbase, steer_offset, wheel_track, wheel_velocity_limit);
+      front_wheels_radius, wheelbase, wheel_track, wheel_velocity_limit);
   }
 
   odometry_.set_odometry_type(steering_odometry::TRICYCLE_CONFIG);

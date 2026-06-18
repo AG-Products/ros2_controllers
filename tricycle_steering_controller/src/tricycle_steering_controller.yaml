@@ -20,15 +20,6 @@ tricycle_steering_controller:
         gt<>: [0.0]
       }
     }
-  
-  steer_offset:
-    {
-      type: double,
-      default_value: 0.0,
-      description: "Perpendicular distance between the steering axle and the wheel axle of the steerable wheel.",
-      read_only: false
-    }
-
   wheel_velocity_limit:
     {
       type: double,

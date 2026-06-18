@@ -34,7 +34,6 @@ SteeringOdometry::SteeringOdometry(size_t velocity_rolling_window_size)
   angular_(0.0),
   wheel_track_(0.0),
   wheelbase_(0.0),
-  steer_offset_(0.0),
   wheel_radius_(0.0),
   wheel_velocity_limit_(0.0),
   traction_wheel_old_pos_(0.0),
@@ -126,8 +125,7 @@ bool SteeringOdometry::update_from_velocity(
 {
   steer_pos_ = steer_pos;
   double linear_velocity = traction_wheel_vel * wheel_radius_;
-  const double angular_velocity =
-    std::sin(steer_pos) * linear_velocity / (wheelbase_ * cos(steer_pos) + steer_offset_);
+  const double angular_velocity = std::tan(steer_pos) * linear_velocity / wheelbase_;
 
   return update_odometry(linear_velocity, angular_velocity, dt);
 }
@@ -136,7 +134,7 @@ double SteeringOdometry::get_linear_velocity_double_traction_axle(
   const double right_traction_wheel_vel, const double left_traction_wheel_vel,
   const double steer_pos)
 {
-  double turning_radius = (wheelbase_ * std::cos(steer_pos) + steer_offset_) / std::sin(steer_pos);
+  double turning_radius = wheelbase_ / std::tan(steer_pos);
   const double vel_wheel_r = right_traction_wheel_vel * wheel_radius_;
   const double vel_wheel_l = left_traction_wheel_vel * wheel_radius_;
 
@@ -159,8 +157,7 @@ bool SteeringOdometry::update_from_velocity(
   double linear_velocity = get_linear_velocity_double_traction_axle(
     right_traction_wheel_vel, left_traction_wheel_vel, steer_pos_);
 
-  const double angular_velocity =
-    std::sin(steer_pos_) * linear_velocity / (wheelbase_ * std::cos(steer_pos_) + steer_offset_);
+  const double angular_velocity = std::tan(steer_pos_) * linear_velocity / wheelbase_;
 
   return update_odometry(linear_velocity, angular_velocity, dt);
 }
@@ -170,7 +167,6 @@ bool SteeringOdometry::update_from_velocity(
   const double right_steer_pos, const double left_steer_pos, const double dt)
 {
   // overdetermined, we take the average
-  std::cerr << "ERROR: THIS FUNCTION HAS NOT BEEN UPDATED WITH CORRECT TRIKE MODEL" << std::endl;
   const double right_steer_pos_est = std::atan(
     wheelbase_ * std::tan(right_steer_pos) /
     (wheelbase_ - wheel_track_ / 2 * std::tan(right_steer_pos)));
@@ -197,13 +193,12 @@ void SteeringOdometry::update_open_loop(const double v_bx, const double omega_bz
 }
 
 void SteeringOdometry::set_wheel_params(
-  double wheel_radius, double wheelbase, double steer_offset, double wheel_track,
+  double wheel_radius, double wheelbase, double wheel_track,
   double wheel_velocity_limit)
 {
   wheel_radius_ = wheel_radius;
   wheelbase_ = wheelbase;
   wheel_track_ = wheel_track;
-  steer_offset_ = steer_offset;
   wheel_velocity_limit_ = wheel_velocity_limit;
 }
 
@@ -222,30 +217,7 @@ void SteeringOdometry::set_odometry_type(const unsigned int type)
 double SteeringOdometry::convert_twist_to_steering_angle(double v_bx, double omega_bz)
 {
   // phi can be nan if both v_bx and omega_bz are zero
-  double phi;
-  if (abs(omega_bz) < 1e-3)
-  {
-    phi = 0;
-  }
-  else
-  {
-    double turning_radius = v_bx / omega_bz;
-    bool positive = (omega_bz > 0 && v_bx > 0) || (omega_bz < 0 && v_bx < 0);
-    if (positive)
-    {
-      phi = std::atan(wheelbase_ / turning_radius) +
-            std::asin(steer_offset_ / sqrt(pow(turning_radius, 2) + pow(wheelbase_, 2)));
-    }
-    else
-    {
-      phi = std::atan(wheelbase_ / turning_radius) -
-            std::asin(steer_offset_ / sqrt(pow(turning_radius, 2) + pow(wheelbase_, 2)));
-    }
-    // std::cout << "turning_radius = " << turning_radius << ", phi = " << phi << std::endl;
-    // std::cout << "Phi part 1 = " << std::atan(wheelbase_ / turning_radius) << ", part 2 = "
-    //           << std::asin(steer_offset_ / sqrt(pow(turning_radius, 2) + pow(wheelbase_, 2)))
-    //           << std::endl;
-  }
+  const auto phi = std::atan(omega_bz * wheelbase_ / v_bx);
   return std::isfinite(phi) ? phi : 0.0;
 }
 
@@ -281,11 +253,10 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
   Ws = v_bx / wheel_radius_;
   if (v_bx == 0 && omega_bz != 0)
   {
-    double spin_angle = M_PI - std::acos(steer_offset_ / wheelbase_);
     if (abs(steer_pos_) > 80.0 * M_PI / 180.0)
-      phi = steer_pos_ > 0 ? spin_angle : -spin_angle;
+      phi = steer_pos_ > 0 ? 0.5 * M_PI : -0.5 * M_PI;
     else
-      phi = omega_bz > 0 ? spin_angle : -spin_angle;
+      phi = omega_bz > 0 ? 0.5 * M_PI : - 0.5 * M_PI;
     Ws = 0.5 * abs(omega_bz) * wheel_track_ / wheel_radius_;
   }
   // printf("lin_speed = %.2lf, Twist = %.2lf, steering angle = %.2lf\n", Ws, omega_bz, phi);
@@ -312,17 +283,19 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
     }
     Ws *= scale;
   }
-  if (phi_delta > 0.01 && Ws == 0)
-  {
-    // scale = sin(abs(steer_pos_));
-    //  printf(
-    //    "Steering correction while not moving, ws = %lf, phi_delta = %lf, scale = %lf, steer_pos =
-    //    "
-    //    "%lf\n",
-    //    Ws, phi_delta, scale, steer_pos_);
-    //  Ws = scale
-    phi = steer_pos_;
-  }
+  
+
+  // if (phi_delta > 0.01 && Ws == 0)
+  // {
+  //   // scale = sin(abs(steer_pos_));
+  //   //  printf(
+  //   //    "Steering correction while not moving, ws = %lf, phi_delta = %lf, scale = %lf, steer_pos =
+  //   //    "
+  //   //    "%lf\n",
+  //   //    Ws, phi_delta, scale, steer_pos_);
+  //   //  Ws = scale
+  //   phi = steer_pos_;
+  // }
   // else
   // {
   //   printf(
@@ -367,7 +340,7 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
       else
       {
         // printf("No spin\n");
-        const double turning_radius = (wheelbase_ * cos(phi_IK) + steer_offset_) / std::sin(phi_IK);
+        const double turning_radius = wheelbase_ / std::tan(phi_IK);
         if (abs(phi_IK) < 1e-3)
         {
           Wr = Wl = Ws;
@@ -402,21 +375,6 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
       // }
       // new_radius = (wheel_track_ * 0.5) * (Wl + Wr) / denom;
     }
-    if (abs(steer_pos_) - abs(phi) > 0.1)
-    {  // special case when steering is moving towards the centre due to the added pressure from the
-      // moving rear wheel
-      double speed_addition_scale = 2;
-      if (Ws > 0)
-      {
-        if (Wl < Wr)
-          Wl += speed_addition_scale * abs(Wl) * abs(phi_delta);
-        else
-          Wr += speed_addition_scale * abs(Wr) * abs(phi_delta);
-      }
-      // std::cout << "Post Correction Wheel Velcoities Wl = " << Wl << ", Wr = " << Wr <<
-      // std::endl;
-    }
-
     traction_commands = {Wr, Wl};
     if (phi > M_PI_2) phi = M_PI_2;
     if (phi < -M_PI_2) phi = -M_PI_2;
