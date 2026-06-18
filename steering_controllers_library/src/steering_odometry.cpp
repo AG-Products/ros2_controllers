@@ -198,14 +198,13 @@ void SteeringOdometry::update_open_loop(const double v_bx, const double omega_bz
 
 void SteeringOdometry::set_wheel_params(
   double wheel_radius, double wheelbase, double steer_offset, double wheel_track,
-  double wheel_velocity_limit, double phi_dot)
+  double wheel_velocity_limit)
 {
   wheel_radius_ = wheel_radius;
   wheelbase_ = wheelbase;
   wheel_track_ = wheel_track;
   steer_offset_ = steer_offset;
   wheel_velocity_limit_ = wheel_velocity_limit;
-  phi_dot_ = phi_dot;
 }
 
 void SteeringOdometry::set_velocity_rolling_window_size(size_t velocity_rolling_window_size)
@@ -283,21 +282,14 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
   if (v_bx == 0 && omega_bz != 0)
   {
     double spin_angle = M_PI - std::acos(steer_offset_ / wheelbase_);
-    // Leaving the special turn-on-the-spot bevahior off for now to reduce clashes with new bits
-    // if (abs(steer_pos_) > 80.0 * M_PI / 180.0)
-    //  phi = steer_pos_ > 0 ? spin_angle : -spin_angle;
-    // else
-    phi = omega_bz > 0 ? spin_angle : -spin_angle;
+    if (abs(steer_pos_) > 80.0 * M_PI / 180.0)
+      phi = steer_pos_ > 0 ? spin_angle : -spin_angle;
+    else
+      phi = omega_bz > 0 ? spin_angle : -spin_angle;
     Ws = 0.5 * abs(omega_bz) * wheel_track_ / wheel_radius_;
   }
   // printf("lin_speed = %.2lf, Twist = %.2lf, steering angle = %.2lf\n", Ws, omega_bz, phi);
   double phi_delta = abs(steer_pos_ - phi);
-  if (phi_delta > 0.01)
-  {
-    double steer_velocity = steer_offset_ * cos(steer_pos_) * phi_dot_;
-    Ws += steer_velocity * wheel_radius_;
-  }
-
   double scale;
   const double min_phi_delta = M_PI / 6.;
   if (!open_loop && reduce_wheel_speed_until_steering_reached)
@@ -320,7 +312,6 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
     }
     Ws *= scale;
   }
-
   if (phi_delta > 0.01 && Ws == 0)
   {
     // scale = sin(abs(steer_pos_));
@@ -411,21 +402,20 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
       // }
       // new_radius = (wheel_track_ * 0.5) * (Wl + Wr) / denom;
     }
-    // if (abs(steer_pos_) - abs(phi) > 0.1)
-    // {  // special case when steering is moving towards the centre due to the added pressure from
-    // the
-    //   // moving rear wheel
-    //   double speed_addition_scale = 2;
-    //   if (Ws > 0)
-    //   {
-    //     if (Wl < Wr)
-    //       Wl += speed_addition_scale * abs(Wl) * abs(phi_delta);
-    //     else
-    //       Wr += speed_addition_scale * abs(Wr) * abs(phi_delta);
-    //   }
-    //   // std::cout << "Post Correction Wheel Velcoities Wl = " << Wl << ", Wr = " << Wr <<
-    //   // std::endl;
-    // }
+    if (abs(steer_pos_) - abs(phi) > 0.1)
+    {  // special case when steering is moving towards the centre due to the added pressure from the
+      // moving rear wheel
+      double speed_addition_scale = 2;
+      if (Ws > 0)
+      {
+        if (Wl < Wr)
+          Wl += speed_addition_scale * abs(Wl) * abs(phi_delta);
+        else
+          Wr += speed_addition_scale * abs(Wr) * abs(phi_delta);
+      }
+      // std::cout << "Post Correction Wheel Velcoities Wl = " << Wl << ", Wr = " << Wr <<
+      // std::endl;
+    }
 
     traction_commands = {Wr, Wl};
     if (phi > M_PI_2) phi = M_PI_2;

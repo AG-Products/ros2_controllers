@@ -174,8 +174,7 @@ public:
    */
   void set_wheel_params(
     const double wheel_radius, const double wheelbase = 0.0, const double steer_offset = 0.0,
-    const double wheel_track = 0.0, const double wheel_velocity_limit = 0.0,
-    const double phi_dot = 0.0);
+    const double wheel_track = 0.0, const double wheel_velocity_limit = 0.0);
 
   /**
    * \brief Velocity rolling window size setter
@@ -267,7 +266,6 @@ private:
   double steer_offset_;          // [m]
   double wheel_radius_;          // [m]
   double wheel_velocity_limit_;  // [rad/s]
-  double phi_dot_;               // [rad/s]
   /// Configuration type used for the forward kinematics
   int config_type_ = -1;
 

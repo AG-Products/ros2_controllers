@@ -29,13 +29,6 @@ tricycle_steering_controller:
       read_only: false
     }
 
-  phi_dot:
-    {
-      type: double,
-      default_value: 0.0,
-      description: "How fast the rear steering wheel rotates in radians/s",
-      read_only: false
-    }
   wheel_velocity_limit:
     {
       type: double,
