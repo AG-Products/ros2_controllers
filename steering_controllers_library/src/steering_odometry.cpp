@@ -251,16 +251,20 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringOdometry::get_comma
   }
   // wheel speed
   Ws = v_bx / wheel_radius_;
+  double phi_delta = abs(steer_pos_ - phi);
   if (v_bx == 0 && omega_bz != 0)
   {
     if (abs(steer_pos_) > 80.0 * M_PI / 180.0)
       phi = steer_pos_ > 0 ? 0.5 * M_PI : -0.5 * M_PI;
     else
       phi = omega_bz > 0 ? 0.5 * M_PI : - 0.5 * M_PI;
-    Ws = 0.5 * abs(omega_bz) * wheel_track_ / wheel_radius_;
+    if(phi_delta < 0.1){ //approx 5 degrees
+      //this equation only works if we are atually spinning on the spot! Otherwise, if wheel is still moving there, we must apply normal equation!
+      Ws = 0.5 * abs(omega_bz) * wheel_track_ / wheel_radius_;
+    }
+    
   }
   // printf("lin_speed = %.2lf, Twist = %.2lf, steering angle = %.2lf\n", Ws, omega_bz, phi);
-  double phi_delta = abs(steer_pos_ - phi);
   double scale;
   const double min_phi_delta = M_PI / 6.;
   if (!open_loop && reduce_wheel_speed_until_steering_reached)

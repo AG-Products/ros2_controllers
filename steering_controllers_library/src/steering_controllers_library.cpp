@@ -245,11 +245,11 @@ void SteeringControllersLibrary::reference_callback(
 void SteeringControllersLibrary::reference_callback_unstamped(
   const std::shared_ptr<geometry_msgs::msg::Twist> msg)
 {
-  RCLCPP_WARN(
-    get_node()->get_logger(),
-    "Use of Twist message without stamped is deprecated and it will be removed in ROS 2 J-Turtle "
-    "version. Use '~/reference' topic with 'geometry_msgs::msg::TwistStamped' message type in the "
-    "future.");
+  // RCLCPP_WARN(
+  //   get_node()->get_logger(),
+  //   "Use of Twist message without stamped is deprecated and it will be removed in ROS 2 J-Turtle "
+  //   "version. Use '~/reference' topic with 'geometry_msgs::msg::TwistStamped' message type in the "
+  //   "future.");
   auto twist_stamped = *(input_ref_.readFromNonRT());
   twist_stamped->header.stamp = get_node()->now();
   // if no timestamp provided use current time for command timestamp
