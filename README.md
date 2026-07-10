@@ -27,7 +27,7 @@
 <h3 align="center">AG-Products/ros_controllers</h3>
 
   <p align="center">
-    This is a stripped-down fork of the <a href="https://github.com/AG-Products/ros2_controllers">ros2_controllers</a> package, with modifications to add features and ensure the desired functionality.
+    This is a stripped-down fork of the <a href="https://github.com/ros-controls/ros2_controllers">ros2_controllers</a> package, with modifications to add features and ensure the desired functionality.
   </p>
 </div>
 
@@ -57,7 +57,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-This is a stripped-down fork of the <a href="https://github.com/AG-Products/ros2_controllers">ros2_controllers</a> package, with modifications to add features and ensure the desired functionality with the AG ARC.
+This is a stripped-down fork of the <a href="https://github.com/ros-controls/ros2_controllers">ros2_controllers</a> package, with modifications to add features and ensure the desired functionality with the AG ARC.
 List of changes from the original ros2_controllers:
 - steering_controllers_library:
   - Add limits to the velocities of the left and right wheels. This is implemented by reducing the desired forward velocity `v_bx` if one or both of the wheels would exceed the specified limit
@@ -78,14 +78,15 @@ Ensure that the two packages modified by AG are not installed via `apt`:
   ```
   sudo apt remove ros-humble-tricycle-steering-controller ros-humble-steering-controllers-library
   ```
-
 ### Installation
-
-1. `mkdir \<workspace>/src`
+Cloning the repository requires having an authenticated ssh token with an account that has access. See [here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent) and [here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)
+1. `mkdir -p \<workspace>/src`
 2. `cd \<workspace>/src`
-3. `git clone https://github.com/AG-Products/ros2_controllers --branch humble`
+3. `git clone git@github.com:AG-Products/ros2_controllers.git --branch humble`
 4. `cd ..`
-5. `colcon build`
+5. `rosdep update`
+6. `rosdep install --from-paths src --ignore-src -r -y`
+7. `colcon build`
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
@@ -110,8 +111,6 @@ tricycle_controller:
 ```
 1. Bringup the controller manager using a launch file. An example launch file can be found in [the zapi hardware package](https://github.com/AG-Products/robot_pkgs/tree/chris_trike_updates).
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 <!-- ROADMAP -->
 ## Roadmap
