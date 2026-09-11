@@ -218,6 +218,21 @@ void SteeringControllersLibrary::reference_callback(
   const std::shared_ptr<ControllerTwistReferenceMsg> msg)
 {
   // if no timestamp provided use current time for command timestamp
+
+  if(!std::isfinite(msg->twist.linear.x)){
+      RCLCPP_ERROR(
+      get_node()->get_logger(),
+      "Rejecting message due to %lf in the linear.x field",msg->twist.linear.x
+      );
+      return;
+  }
+  if(!std::isfinite(msg->twist.angular.z)){
+      RCLCPP_ERROR(
+      get_node()->get_logger(),
+      "Rejecting message due to %lf in the angular.z field",msg->twist.angular.z
+      );
+      return;
+  }
   if (msg->header.stamp.sec == 0 && msg->header.stamp.nanosec == 0u)
   {
     RCLCPP_WARN(
@@ -250,6 +265,20 @@ void SteeringControllersLibrary::reference_callback_unstamped(
   //   "Use of Twist message without stamped is deprecated and it will be removed in ROS 2 J-Turtle "
   //   "version. Use '~/reference' topic with 'geometry_msgs::msg::TwistStamped' message type in the "
   //   "future.");
+  if(!std::isfinite(msg->linear.x)){
+      RCLCPP_ERROR(
+      get_node()->get_logger(),
+      "Rejecting message due to %lf in the linear.x field",msg->linear.x
+      );
+      return;
+  }
+  if(!std::isfinite(msg->angular.z)){
+      RCLCPP_ERROR(
+      get_node()->get_logger(),
+      "Rejecting message due to %lf in the angular.z field",msg->angular.z
+      );
+      return;
+  }
   auto twist_stamped = *(input_ref_.readFromNonRT());
   twist_stamped->header.stamp = get_node()->now();
   // if no timestamp provided use current time for command timestamp
